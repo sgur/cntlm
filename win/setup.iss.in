@@ -14,16 +14,15 @@ SetupIconFile=cntlm.ico
 UninstallDisplayIcon={app}\cntlm.ico
 Uninstallable=yes
 OutputBaseFileName=cntlm-$VERSION-win32
+ArchitecturesInstallIn64BitMode=$ARCH
 OutputDir=..
 
 [Files]
 Source: "cntlm.exe"; DestDir: "{app}"
 Source: "cygrunsrv.exe"; DestDir: "{app}"
-Source: "cygwin1.dll"; DestDir: "{app}"
-Source: "cyggcc_s-1.dll"; DestDir: "{app}"
-Source: "cygstdc++-6.dll"; DestDir: "{app}"
+Source: "msys-2.0.dll"; DestDir: "{app}"
 Source: "cntlm.ini"; DestDir: "{app}"; Flags: uninsneveruninstall confirmoverwrite
-Source: "cntlm_manual.pdf"; DestDir: "{app}"
+;; Source: "cntlm_manual.pdf"; DestDir: "{app}"
 Source: "LICENSE.txt"; DestDir: "{app}";
 Source: "README.txt"; DestDir: "{app}";
 Source: "Cntlm Homepage.url"; DestDir: "{app}"

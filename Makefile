@@ -18,7 +18,7 @@ VER		:= $(shell cat VERSION)
 OS		:= $(shell uname -s)
 OSLDFLAGS	:= $(shell [ $(OS) = "SunOS" ] && echo "-lrt -lsocket -lnsl")
 LDFLAGS		:= -lpthread $(OSLDFLAGS)
-CYGWIN_REQS	:= cygwin1.dll cyggcc_s-1.dll cygstdc++-6.dll cygrunsrv.exe 
+MSYS2_REQS	:= msys-2.0.dll cygrunsrv.exe
 
 ifeq ($(DEBUG),1)
 	CFLAGS	+= -g  -std=c99 -Wall -pedantic -D__BSD_VISIBLE -D_ALL_SOURCE -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112 -D_ISOC99_SOURCE -D_REENTRANT -D_BSD_SOURCE -DVERSION=\"'$(VER)'\"
@@ -26,7 +26,7 @@ else
 	CFLAGS	+= -O3 -std=c99 -D__BSD_VISIBLE -D_ALL_SOURCE -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112 -D_ISOC99_SOURCE -D_REENTRANT -D_BSD_SOURCE -DVERSION=\"'$(VER)'\"
 endif
 
-ifneq ($(findstring CYGWIN,$(OS)),)
+ifneq ($(findstring MSYS,$(OS)),)
 	OBJS=utils.o ntlm.o xcrypt.o config.o socket.o acl.o auth.o http.o forward.o direct.o scanner.o pages.o main.o sspi.o win/resources.o
 else
 	OBJS=utils.o ntlm.o xcrypt.o config.o socket.o acl.o auth.o http.o forward.o direct.o scanner.o pages.o main.o sspi.o
@@ -111,11 +111,11 @@ rpm:
 		fakeroot rpm/rules clean; \
 	fi
 
-win: win/setup.iss $(NAME) win/cntlm_manual.pdf win/cntlm.ini win/LICENSE.txt $(NAME)-$(VER)-win32.exe $(NAME)-$(VER)-win32.zip
+win: win/setup.iss $(NAME) win/cntlm_manual.html win/cntlm.ini win/LICENSE.txt $(NAME)-$(VER)-win32.exe $(NAME)-$(VER)-win32.zip
 
 $(NAME)-$(VER)-win32.exe:
 	@echo Win32: preparing binaries for GUI installer
-	@cp $(patsubst %, /bin/%, $(CYGWIN_REQS)) win/
+	@cp $(patsubst %, /usr/bin/%, $(MSYS2_REQS)) win/
 ifeq ($(DEBUG),1)
 	@echo Win32: copy DEBUG executable
 	@cp -p cntlm.exe win/
@@ -124,12 +124,12 @@ else
 	@strip -o win/cntlm.exe cntlm.exe
 endif
 	@echo Win32: generating GUI installer
-	@win/Inno5/ISCC.exe /Q win/setup.iss #/Q win/setup.iss
+	@win/Inno5/ISCC.exe win/setup.iss
 
 $(NAME)-$(VER)-win32.zip: 
 	@echo Win32: creating ZIP release for manual installs
 	@ln -s win $(NAME)-$(VER)
-	zip -9 $@ $(patsubst %, $(NAME)-$(VER)/%, cntlm.exe $(CYGWIN_REQS) cntlm.ini LICENSE.txt cntlm_manual.pdf) 
+	zip -9 $@ $(patsubst %, $(NAME)-$(VER)/%, cntlm.exe $(MSYS2_REQS) cntlm.ini LICENSE.txt cntlm_manual.html) 
 	@rm -f $(NAME)-$(VER)
 
 win/cntlm.ini: doc/cntlm.conf 
@@ -138,19 +138,28 @@ win/cntlm.ini: doc/cntlm.conf
 win/LICENSE.txt: COPYRIGHT LICENSE
 	@cat COPYRIGHT LICENSE | unix2dos > $@
 
+win/cntlm_manual.html: doc/cntlm.1 
+	@echo Win32: generating HTML manual
+	@rm -f $@
+	@groff -t -e -mandoc -Thtml doc/cntlm.1 > $@
+
 win/cntlm_manual.pdf: doc/cntlm.1 
 	@echo Win32: generating PDF manual
 	@rm -f $@
 	@groff -t -e -mandoc -Tps doc/cntlm.1 | ps2pdf - $@
 
 win/setup.iss: win/setup.iss.in
-ifeq ($(findstring CYGWIN,$(OS)),)
+ifeq ($(findstring MSYS,$(OS)),)
 	@echo
 	@echo "* This build target must be run from a Cywgin shell on Windows *"
 	@echo
 	@exit 1
 endif
+ifneq ($(findstring MSYS,$(OS)),)
+	@sed -e "s/\$$VERSION/$(VER)/g" -e "s/\$$ARCH/x64/g" $^ > $@
+else
 	@sed "s/\$$VERSION/$(VER)/g" $^ > $@
+endif
 
 uninstall:
 	rm -f $(BINDIR)/$(NAME) $(MANDIR)/man1/$(NAME).1 2>/dev/null || true
@@ -158,11 +167,11 @@ uninstall:
 clean:
 	@rm -f config/endian config/gethostname config/strdup config/socklen_t config/*.exe
 	@rm -f *.o cntlm cntlm.exe configure-stamp build-stamp config/config.h
-	rm -f $(patsubst %, win/%, $(CYGWIN_REQS) cntlm.exe cntlm.ini LICENSE.txt setup.iss cntlm_manual.pdf)
+	rm -f $(patsubst %, win/%, $(MSYS2_REQS) cntlm.exe cntlm.ini LICENSE.txt setup.iss cntlm_manual.html)
 	@if [ -h Makefile ]; then rm -f Makefile; mv Makefile.gcc Makefile; fi
 
 distclean: clean
-ifeq ($(findstring CYGWIN,$(OS)),)
+ifeq ($(findstring MSYS,$(OS)),)
 	if [ `id -u` = 0 ]; then \
 		debian/rules clean; \
 		rpm/rules clean; \

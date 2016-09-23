@@ -31,7 +31,11 @@
 #include <netdb.h>
 #include <sys/socket.h>
 
+#ifdef __CYGWIN__
+extern int __declspec(dllimport) h_errno;
+#else
 extern int h_errno;
+#endif
 
 #include "utils.h"
 #include "globals.h"
