@@ -1,0 +1,6 @@
+win/
+*.o
+*.exe
+*.zip
+config/config.h
+configure-stamp
