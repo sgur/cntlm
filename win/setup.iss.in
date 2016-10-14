@@ -13,16 +13,16 @@ DefaultGroupName=Cntlm
 SetupIconFile=cntlm.ico
 UninstallDisplayIcon={app}\cntlm.ico
 Uninstallable=yes
-OutputBaseFileName=cntlm-$VERSION-win32
-ArchitecturesInstallIn64BitMode=$ARCH
+OutputBaseFileName=cntlm-$VERSION-$ARCH
+ArchitecturesInstallIn64BitMode=$64BIT_MODE
 OutputDir=..
 
 [Files]
 Source: "cntlm.exe"; DestDir: "{app}"
 Source: "cygrunsrv.exe"; DestDir: "{app}"
-Source: "msys-2.0.dll"; DestDir: "{app}"
+#include "$DLL_TYPE_dll.iss"
 Source: "cntlm.ini"; DestDir: "{app}"; Flags: uninsneveruninstall confirmoverwrite
-;; Source: "cntlm_manual.pdf"; DestDir: "{app}"
+Source: "cntlm_manual.$HELP_EXT"; DestDir: "{app}"
 Source: "LICENSE.txt"; DestDir: "{app}";
 Source: "README.txt"; DestDir: "{app}";
 Source: "Cntlm Homepage.url"; DestDir: "{app}"

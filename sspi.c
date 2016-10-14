@@ -219,11 +219,7 @@ int sspi_request(char **dst, struct sspi_handle *sspi)
 	char *tokenBuf = new(TOKEN_BUFSIZE);
 	SecBufferDesc   tokenDesc;
 	SecBuffer       token;
-#ifdef __CYGWIN__
-	unsigned int attrs;
-#else
 	unsigned long attrs;
-#endif
 	
 	tokenDesc.ulVersion = SECBUFFER_VERSION;
 	tokenDesc.cBuffers  = 1;
@@ -266,11 +262,7 @@ int sspi_response(char **dst, char *challengeBuf, int challen, struct sspi_handl
 	SecBufferDesc challengeDesc;
 	SecBufferDesc answerDesc;
 	SECURITY_STATUS status;
-#ifdef __CYGWIN__
-	unsigned int attrs;
-#else
 	unsigned long attrs;
-#endif
 	TimeStamp expiry;
 	
 	char *answerBuf = new(TOKEN_BUFSIZE);

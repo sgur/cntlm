@@ -17,7 +17,9 @@ CC		:= gcc
 VER		:= $(shell cat VERSION)
 OS		:= $(shell uname -s)
 OSLDFLAGS	:= $(shell [ $(OS) = "SunOS" ] && echo "-lrt -lsocket -lnsl")
+ARCH		:= $(shell uname -m)
 LDFLAGS		:= -lpthread $(OSLDFLAGS)
+CYGWIN_REQS	:= cygwin1.dll cyggcc_s-1.dll cygstdc++-6.dll cygrunsrv.exe 
 MSYS2_REQS	:= msys-2.0.dll cygrunsrv.exe
 
 ifeq ($(DEBUG),1)
@@ -26,7 +28,7 @@ else
 	CFLAGS	+= -O3 -std=c99 -D__BSD_VISIBLE -D_ALL_SOURCE -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112 -D_ISOC99_SOURCE -D_REENTRANT -D_BSD_SOURCE -DVERSION=\"'$(VER)'\"
 endif
 
-ifneq ($(findstring MSYS,$(OS)),)
+ifneq ($(filter CYGWIN% MSYS%,$(OS)),)
 	OBJS=utils.o ntlm.o xcrypt.o config.o socket.o acl.o auth.o http.o forward.o direct.o scanner.o pages.o main.o sspi.o win/resources.o
 else
 	OBJS=utils.o ntlm.o xcrypt.o config.o socket.o acl.o auth.o http.o forward.o direct.o scanner.o pages.o main.o sspi.o
@@ -111,11 +113,13 @@ rpm:
 		fakeroot rpm/rules clean; \
 	fi
 
-win: win/setup.iss $(NAME) win/cntlm_manual.html win/cntlm.ini win/LICENSE.txt $(NAME)-$(VER)-win32.exe $(NAME)-$(VER)-win32.zip
+win: win/setup.iss $(NAME) win/cntlm_manual.pdf win/cntlm.ini win/LICENSE.txt $(NAME)-$(VER)-win32.exe $(NAME)-$(VER)-win32.zip
+
+win-msys2: win/setup.iss $(NAME) win/cntlm_manual.html win/cntlm.ini win/LICENSE.txt $(NAME)-$(VER)-msys2-$(ARCH).exe
 
 $(NAME)-$(VER)-win32.exe:
 	@echo Win32: preparing binaries for GUI installer
-	@cp $(patsubst %, /usr/bin/%, $(MSYS2_REQS)) win/
+	@cp $(patsubst %, /bin/%, $(CYGWIN_REQS)) win/
 ifeq ($(DEBUG),1)
 	@echo Win32: copy DEBUG executable
 	@cp -p cntlm.exe win/
@@ -124,13 +128,21 @@ else
 	@strip -o win/cntlm.exe cntlm.exe
 endif
 	@echo Win32: generating GUI installer
-	@win/Inno5/ISCC.exe win/setup.iss
+	@win/Inno5/ISCC.exe /Q win/setup.iss #/Q win/setup.iss
 
 $(NAME)-$(VER)-win32.zip: 
 	@echo Win32: creating ZIP release for manual installs
 	@ln -s win $(NAME)-$(VER)
-	zip -9 $@ $(patsubst %, $(NAME)-$(VER)/%, cntlm.exe $(MSYS2_REQS) cntlm.ini LICENSE.txt cntlm_manual.html) 
+	zip -9 $@ $(patsubst %, $(NAME)-$(VER)/%, cntlm.exe $(CYGWIN_REQS) cntlm.ini LICENSE.txt cntlm_manual.pdf) 
 	@rm -f $(NAME)-$(VER)
+
+$(NAME)-$(VER)-msys2-$(ARCH).exe:
+	@echo MSYS2: preparing binaries for GUI installer
+	@cp $(patsubst %, /usr/bin/%, $(MSYS2_REQS)) win/
+	@echo MSYS2: copy release executable
+	@strip -o win/cntlm.exe cntlm.exe
+	@echo MSYS2: generating GUI installer
+	@win/Inno5/ISCC.exe win/setup.iss
 
 win/cntlm.ini: doc/cntlm.conf 
 	@cat doc/cntlm.conf | unix2dos > $@
@@ -149,16 +161,35 @@ win/cntlm_manual.pdf: doc/cntlm.1
 	@groff -t -e -mandoc -Tps doc/cntlm.1 | ps2pdf - $@
 
 win/setup.iss: win/setup.iss.in
-ifeq ($(findstring MSYS,$(OS)),)
+ifeq ($(filter CYGWIN% MSYS%,$(OS)),)
 	@echo
 	@echo "* This build target must be run from a Cywgin shell on Windows *"
 	@echo
 	@exit 1
 endif
 ifneq ($(findstring MSYS,$(OS)),)
-	@sed -e "s/\$$VERSION/$(VER)/g" -e "s/\$$ARCH/x64/g" $^ > $@
+  ifeq ($(ARCH), x86_64)
+	@sed -e "s/\$$VERSION/$(VER)/g" \
+		-e "s/\$$ARCH/msys2-$(ARCH)/g" \
+		-e "s/\$$64BIT_MODE/x64/g" \
+		-e "s/\$$HELP_EXT/html/g" \
+		-e "s/\$$DLL_TYPE/msys2/g" \
+		$^ > $@
+  else
+	@sed -e "s/\$$VERSION/$(VER)/g" \
+		-e "s/\$$ARCH/msys2-$(ARCH)/g" \
+		-e "s/\$$64BIT_MODE//g" \
+		-e "s/\$$HELP_EXT/html/g" \
+		-e "s/\$$DLL_TYPE/msys2/g" \
+		$^ > $@
+  endif
 else
-	@sed "s/\$$VERSION/$(VER)/g" $^ > $@
+	@sed -e "s/\$$VERSION/$(VER)/g" \
+		-e "s/\$$ARCH/win32/g" \
+		-e "s/\$$64BIT_MODE//g" \
+		-e "s/\$$HELP_EXT/pdf/g" \
+		-e "s/\$$DLL_TYPE/cygwin/g" \
+		$^ > $@
 endif
 
 uninstall:
@@ -166,12 +197,12 @@ uninstall:
 
 clean:
 	@rm -f config/endian config/gethostname config/strdup config/socklen_t config/*.exe
-	@rm -f *.o cntlm cntlm.exe configure-stamp build-stamp config/config.h
-	rm -f $(patsubst %, win/%, $(MSYS2_REQS) cntlm.exe cntlm.ini LICENSE.txt setup.iss cntlm_manual.html)
+	@rm -f *.o cntlm cntlm.exe configure-stamp build-stamp config/config.h win/resources.o
+	rm -f $(patsubst %, win/%, $(CYGWIN_REQS) $(MSYS2_REQS) cntlm.exe cntlm.ini LICENSE.txt setup.iss cntlm_manual.pdf cntlm_manual.html)
 	@if [ -h Makefile ]; then rm -f Makefile; mv Makefile.gcc Makefile; fi
 
 distclean: clean
-ifeq ($(findstring MSYS,$(OS)),)
+ifeq ($(filter CYGWIN% MSYS%,$(OS)),)
 	if [ `id -u` = 0 ]; then \
 		debian/rules clean; \
 		rpm/rules clean; \
